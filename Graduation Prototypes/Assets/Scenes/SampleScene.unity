@@ -525,18 +525,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   speed: 15
   jumpSpeed: 8
-  gravity: 20
+  gravity: 9
   playerCameraParent: {fileID: 1871531460}
   lookSpeed: 2
   lookXLimit: 60
-  maxBurrowSpeed: 40
+  maxBurrowSpeed: 30
+  startBurrowSpeed: 1
   canMove: 1
   isBurrowed: 0
   playerVisual: {fileID: 2024600893}
-  burrowAcceleration: 0.05
+  burrowAcceleration: 0.01
   burrowDeceleration: 0.31
   burrowParticle: {fileID: 1065270627}
-  burrowTurnRate: 10
+  burrowTurnRate: 20
+  unburrowJump: 6
+  maxTimingBoost: 10
+  boostRange: 10
 --- !u!143 &126072237
 CharacterController:
   m_ObjectHideFlags: 0
@@ -1811,7 +1815,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1065270627}
   m_LocalRotation: {x: -0.7071057, y: -0, z: -0, w: 0.7071079}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0.17, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 126072238}
@@ -3975,7 +3979,7 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
   ForceModule:
-    enabled: 0
+    enabled: 1
     x:
       serializedVersion: 2
       minMaxState: 0
@@ -4032,7 +4036,7 @@ ParticleSystem:
     y:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 0
+      scalar: -12.61
       minScalar: 0
       maxCurve:
         serializedVersion: 2
@@ -4135,7 +4139,7 @@ ParticleSystem:
         m_PreInfinity: 2
         m_PostInfinity: 2
         m_RotationOrder: 4
-    inWorldSpace: 0
+    inWorldSpace: 1
     randomizePerFrame: 0
   ExternalForcesModule:
     serializedVersion: 2

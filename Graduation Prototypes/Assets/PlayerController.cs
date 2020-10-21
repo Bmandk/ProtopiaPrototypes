@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using TMPro;
+using UnityEngine;
 using UnityEngine.Serialization;
 
 [RequireComponent(typeof(CharacterController))]
@@ -11,6 +12,7 @@ public class PlayerController : MonoBehaviour
     public float lookSpeed = 2.0f;
     public float lookXLimit = 60.0f;
     public float maxBurrowSpeed = 40f;
+    public float startBurrowSpeed = 1f;
 
     CharacterController characterController;
     Vector3 moveDirection = Vector3.zero;
@@ -27,6 +29,12 @@ public class PlayerController : MonoBehaviour
     private float visualYPosition;
     public GameObject burrowParticle;
     public float burrowTurnRate;
+    public float unburrowJump = 2f;
+    public float maxTimingBoost = 5f;
+    public float boostRange = 5f;
+
+
+    private bool unburrowing = false;
 
     void Start()
     {
@@ -34,6 +42,7 @@ public class PlayerController : MonoBehaviour
         rotation.y = transform.eulerAngles.y;
         visualYPosition = playerVisual.transform.localPosition.y;
         burrowParticle.SetActive(false);
+        burrowVelocity = startBurrowSpeed;
     }
 
     void Update()
@@ -51,35 +60,71 @@ public class PlayerController : MonoBehaviour
 
     public void GroundMovement()
     {
-        if (characterController.isGrounded)
+        float curSpeedX = 0f;
+        float curSpeedY = 0f;
+        curSpeedY = Input.GetAxis("Vertical");
+        curSpeedX = Input.GetAxis("Horizontal");
+        if (characterController.isGrounded && canMove && !unburrowing)
         {
-            Vector3 forward = transform.TransformDirection(Vector3.forward);
-            Vector3 right = transform.TransformDirection(Vector3.right);
-            float curSpeedX = canMove ? speed * Input.GetAxis("Vertical") : 0;
-            float curSpeedY = canMove ? speed * Input.GetAxis("Horizontal") : 0;
-            Vector3 horizontalMoveDirection = (forward * curSpeedX) + (right * curSpeedY);
-            moveDirection.x = horizontalMoveDirection.x;
-            moveDirection.z = horizontalMoveDirection.z;
-
-            if (Input.GetButton("Jump") && canMove)
+            moveDirection.y = 0f;
+            if (Input.GetButtonDown("Jump"))
             {
-                Burrow();
+                Burrow(false);
             }
         }
 
+        if (Input.GetButtonDown("Jump") && !unburrowing && !characterController.isGrounded)
+        {
+            Burrow(true) ;
+        }
 
-        moveDirection.y -= gravity * Time.deltaTime;
+        
+        if (unburrowing)
+        {
+            unburrowing = false;
+            moveDirection.y = unburrowJump;
+        }
 
-        characterController.Move(moveDirection * Time.deltaTime);
+        else
+        {
+            Vector2 moveDirection2 = new Vector2(curSpeedX, curSpeedY).normalized;
+            moveDirection.x = moveDirection2.x;
+            moveDirection.y -= gravity * Time.deltaTime;
+            moveDirection.z = moveDirection2.y;
+        }
+        moveDirection = Quaternion.AngleAxis(rotation.y, Vector3.up) * moveDirection;
+        if (characterController.isGrounded)
+        {
+            characterController.Move(moveDirection * speed * Time.deltaTime);
+        }
+        else
+        {
+            if (burrowVelocity < startBurrowSpeed)
+            {
+                burrowVelocity = startBurrowSpeed;
+            }
+            characterController.Move(moveDirection * burrowVelocity * Time.deltaTime);
+        }
+        
     }
 
-    public void Burrow()
+    public void Burrow(bool boosting)
     {
         isBurrowed = true;
         burrowParticle.SetActive(true);
         //characterController.detectCollisions = false;
-        Vector3 horizontalVelocity = new Vector3(moveDirection.x, 0f, moveDirection.z) * Time.deltaTime;
-        burrowVelocity = horizontalVelocity.magnitude;
+        Vector3 horizontalVelocity = new Vector3(moveDirection.x, 0f, moveDirection.z);
+        burrowVelocity = horizontalVelocity.magnitude * speed;
+
+        if(boosting)
+        {
+            RaycastHit hit;
+            Physics.Raycast(transform.position, Vector3.down, out hit);
+            Debug.Log(hit.distance);
+            float boostMultiplier = Mathf.Max(0f, 1 - hit.distance / boostRange);
+            burrowVelocity += boostMultiplier * maxTimingBoost;
+        }
+        
         
         
         Vector3 meshPosition = playerVisual.transform.position;
@@ -90,31 +135,30 @@ public class PlayerController : MonoBehaviour
     public void Unburrow()
     {
         isBurrowed = false;
+        unburrowing = true;
         burrowParticle.SetActive(false);
         characterController.detectCollisions = true;
         
         Vector3 meshPosition = playerVisual.transform.localPosition;
         meshPosition.y = visualYPosition;
         playerVisual.transform.localPosition = meshPosition;
-        moveDirection.y = characterController.velocity.y;
     }
 
     public void BurrowMovement()
     {
         if (Input.GetKey(KeyCode.W))
         {
-            burrowVelocity = Mathf.Min(burrowVelocity + burrowAcceleration * Time.deltaTime, maxBurrowSpeed);
+            burrowVelocity = Mathf.Min(burrowVelocity + burrowAcceleration, maxBurrowSpeed);
         }
         else
         {
-            burrowVelocity = Mathf.Max(burrowVelocity - burrowDeceleration * Time.deltaTime, 0f);
+            burrowVelocity = Mathf.Max(burrowVelocity - burrowDeceleration, 0f);
         }
-        Vector3 targetBurrowDirection = transform.forward * burrowVelocity;
+        Vector3 targetBurrowDirection = transform.forward;
         Vector3 burrowDirection = characterController.velocity.normalized;
         burrowDirection = Vector3.Lerp(burrowDirection, targetBurrowDirection, Time.deltaTime * burrowTurnRate);
-        burrowDirection.y = targetBurrowDirection.y;
-        burrowDirection.y -= gravity * Time.deltaTime;
-        characterController.Move(burrowDirection * burrowVelocity);
+        burrowDirection.y = -gravity;
+        characterController.Move(burrowDirection * burrowVelocity * Time.deltaTime);
         
         if (!Input.GetButton("Jump"))
         {

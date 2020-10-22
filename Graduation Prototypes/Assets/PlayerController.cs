@@ -32,6 +32,7 @@ public class PlayerController : MonoBehaviour
     public float unburrowJump = 2f;
     public float maxTimingBoost = 5f;
     public float boostRange = 5f;
+    public float burrowHeight = 10f;
     private Vector3 burrowDirection = Vector3.forward;
 
     public GameObject boostIndicator;
@@ -72,9 +73,13 @@ public class PlayerController : MonoBehaviour
             }
         }
 
+
         if (Input.GetButtonDown("Jump") && !unburrowing && !characterController.isGrounded)
         {
-            Burrow(true) ;
+            RaycastHit hit;
+            Physics.Raycast(transform.position, Vector3.down, out hit);
+            if (hit.distance < burrowHeight)
+                Burrow(true);
         }
 
         

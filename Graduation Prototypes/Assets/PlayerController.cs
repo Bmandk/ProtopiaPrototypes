@@ -1,18 +1,13 @@
-﻿using TMPro;
+﻿using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    public float speed = 7.5f;
-    public float jumpSpeed = 8.0f;
-    public float gravity = 20.0f;
     private Transform playerCameraParent;
-    public float lookSpeed = 2.0f;
-    public float lookXLimit = 60.0f;
-    public float maxBurrowSpeed = 40f;
-    public float startBurrowSpeed = 1f;
 
     CharacterController characterController;
     Vector3 moveDirection = Vector3.zero;
@@ -24,33 +19,27 @@ public class PlayerController : MonoBehaviour
     public bool isBurrowed = false;
     [FormerlySerializedAs("playerMesh")] private GameObject playerVisual;
     private float burrowVelocity;
-    public float burrowAcceleration;
-    public float burrowDeceleration;
     private float visualYPosition;
     private GameObject burrowParticle;
     private GameObject burrowParticle1;
     private GameObject burrowParticle2;
     private GameObject burrowParticle3;
     private GameObject burrowParticle4;
-    public float burrowTurnRate;
-    public float unburrowJump = 2f;
-    public float maxTimingBoost = 5f;
-    public float boostRange = 5f;
-    public float burrowHeight = 10f;
     private Vector3 burrowDirection = Vector3.forward;
 
     private GameObject boostIndicator;
 
-    public float slopeBoost = 10f;
-
 
     private bool unburrowing = false;
     private bool inAir = false;
+    public PlayerStats[] _playerStats;
+    public int selectedStats;
+    public Text speedText;
 
     private void Awake()
     {
         playerCameraParent = GameObject.Find("Camera Parent").transform;
-        playerVisual = GameObject.Find("Capsule");
+        playerVisual = GameObject.Find("PlayerModel");
         burrowParticle = GameObject.Find("BurrowParticle1");
         burrowParticle1 = GameObject.Find("BurrowParticle2");
         burrowParticle2 = GameObject.Find("BurrowParticle3");
@@ -68,16 +57,16 @@ public class PlayerController : MonoBehaviour
         burrowParticle2.SetActive(false);
         burrowParticle3.SetActive(false);
         burrowParticle4.SetActive(false);
-        burrowVelocity = startBurrowSpeed;
+        burrowVelocity = _playerStats[selectedStats].startBurrowSpeed;
         
     }
 
     void Update()
     {
         boostIndicator.SetActive(false);
-        rotation.y += Input.GetAxis("Mouse X") * lookSpeed;
-        rotation.x += -Input.GetAxis("Mouse Y") * lookSpeed;
-        rotation.x = Mathf.Clamp(rotation.x, -lookXLimit, lookXLimit);
+        rotation.y += Input.GetAxis("Mouse X") * _playerStats[selectedStats].lookSpeed;
+        rotation.x += -Input.GetAxis("Mouse Y") * _playerStats[selectedStats].lookSpeed;
+        rotation.x = Mathf.Clamp(rotation.x, -_playerStats[selectedStats].lookXLimit, _playerStats[selectedStats].lookXLimit);
         playerCameraParent.localRotation = Quaternion.Euler(rotation.x, 0, 0);
         transform.eulerAngles = new Vector2(0, rotation.y);
         if (isBurrowed)
@@ -104,13 +93,13 @@ public class PlayerController : MonoBehaviour
         if (Input.GetButtonDown("Jump") && !unburrowing && !characterController.isGrounded)
         {
 
-            if (hit.distance < burrowHeight)
+            if (hit.distance < _playerStats[selectedStats].burrowHeight)
                 Burrow(true);
         }
 
         if (unburrowing)
         {
-            burrowDirection.y = unburrowJump;
+            burrowDirection.y = _playerStats[selectedStats].unburrowJump;
         }
         else
         {
@@ -118,29 +107,29 @@ public class PlayerController : MonoBehaviour
             float curSpeedX = Input.GetAxis("Horizontal");
             Vector2 moveDirection2 = new Vector2(curSpeedX, curSpeedY).normalized;
             moveDirection.x = moveDirection2.x;
-            moveDirection.y -= gravity * Time.deltaTime;
+            moveDirection.y -= _playerStats[selectedStats].gravity * Time.deltaTime;
             moveDirection.z = moveDirection2.y;
         }
         moveDirection = Quaternion.AngleAxis(rotation.y, Vector3.up) * moveDirection;
 
         if (!unburrowing && !inAir)
         {
-            characterController.Move(moveDirection * speed * Time.deltaTime);
+            characterController.Move(moveDirection * _playerStats[selectedStats].speed * Time.deltaTime);
         }
         else
         {
-            if (burrowVelocity < startBurrowSpeed)
+            if (burrowVelocity < _playerStats[selectedStats].startBurrowSpeed)
             {
-                burrowVelocity = startBurrowSpeed;
+                burrowVelocity = _playerStats[selectedStats].startBurrowSpeed;
             }
-            burrowDirection.y -= gravity * Time.deltaTime;
+            burrowDirection.y -= _playerStats[selectedStats].gravity * Time.deltaTime;
             characterController.Move(new Vector3(burrowDirection.x * burrowVelocity * Time.deltaTime,
                                                  burrowDirection.y * Time.deltaTime,
                                                  burrowDirection.z * burrowVelocity * Time.deltaTime));
 
 
 
-            if (hit.distance < boostRange && characterController.velocity.y < 0)
+            if (hit.distance < _playerStats[selectedStats].boostRange && characterController.velocity.y < 0)
             {
                 boostIndicator.SetActive(true);
             }
@@ -148,7 +137,7 @@ public class PlayerController : MonoBehaviour
         if (characterController.isGrounded && !unburrowing && !isBurrowed)
         {
             inAir = false;
-            burrowVelocity = startBurrowSpeed;
+            burrowVelocity = _playerStats[selectedStats].startBurrowSpeed;
         }
         unburrowing = false;
     }
@@ -169,7 +158,7 @@ public class PlayerController : MonoBehaviour
         Vector2 movementdir = new Vector2(transform.forward.x, transform.forward.z);
         float angle = Vector2.Angle(slopeDirection, movementdir);
         float boostMultiplier = Mathf.Lerp(1f, -1f, angle/180f);
-        float boost = slopeBoost * slope * boostMultiplier;
+        float boost = _playerStats[selectedStats].slopeBoost * slope * boostMultiplier;
         Debug.Log(boost);
         burrowVelocity += boost;
 
@@ -180,18 +169,18 @@ public class PlayerController : MonoBehaviour
             //float boostMultiplier = Mathf.Max(0f, 1 - hit.distance / boostRange);
             //burrowVelocity += boostMultiplier * maxTimingBoost;
             //burrowVelocity += maxTimingBoost;
-            if (hit.distance < boostRange && characterController.velocity.y < 0)
+            if (hit.distance < _playerStats[selectedStats].boostRange && characterController.velocity.y < 0)
             {
-                burrowVelocity += maxTimingBoost;
+                burrowVelocity += _playerStats[selectedStats].maxTimingBoost;
             }
         }
         else
         {
             Vector3 horizontalVelocity = new Vector3(moveDirection.x, 0f, moveDirection.z);
-            burrowVelocity = Mathf.Max(burrowVelocity, horizontalVelocity.magnitude * speed);
+            burrowVelocity = Mathf.Max(burrowVelocity, horizontalVelocity.magnitude * _playerStats[selectedStats].speed);
         }
 
-        burrowVelocity = Mathf.Max(burrowVelocity, startBurrowSpeed);
+        burrowVelocity = Mathf.Max(burrowVelocity, _playerStats[selectedStats].startBurrowSpeed);
         
         Vector3 meshPosition = playerVisual.transform.position;
         meshPosition.y = -2;
@@ -218,27 +207,27 @@ public class PlayerController : MonoBehaviour
 
     public void BurrowMovement()
     {
-        if (burrowVelocity / maxBurrowSpeed > 0.4f)
+        if (burrowVelocity >= _playerStats[1].maxBurrowSpeed)
             burrowParticle1.SetActive(true);
         else
             burrowParticle1.SetActive(false);
-        if (burrowVelocity / maxBurrowSpeed > 0.55f)
+        if (burrowVelocity >= _playerStats[2].maxBurrowSpeed)
             burrowParticle2.SetActive(true);
         else
             burrowParticle2.SetActive(false);
-        if (burrowVelocity / maxBurrowSpeed > 0.70f)
+        if (burrowVelocity >= _playerStats[3].maxBurrowSpeed)
             burrowParticle3.SetActive(true);
         else
             burrowParticle3.SetActive(false);
-        if (burrowVelocity / maxBurrowSpeed > 0.85f)
+        /*if (burrowVelocity >= _playerStats[3].maxBurrowSpeed)
             burrowParticle4.SetActive(true);
         else
-            burrowParticle4.SetActive(false);
+            burrowParticle4.SetActive(false);*/
 
 
         //if (Input.GetKey(KeyCode.W))
         //{
-        burrowVelocity = Mathf.Min(burrowVelocity + burrowAcceleration, maxBurrowSpeed);
+        burrowVelocity = Mathf.Min(burrowVelocity + _playerStats[selectedStats].burrowAcceleration, _playerStats[selectedStats].maxBurrowSpeed);
         //}
         //else
         //{
@@ -250,13 +239,15 @@ public class PlayerController : MonoBehaviour
         {
             burrowDirection = transform.forward;
         }
-        burrowDirection = Vector3.Lerp(burrowDirection, targetBurrowDirection, Time.deltaTime * burrowTurnRate);
-        burrowDirection.y = -gravity;
+        burrowDirection = Vector3.Lerp(burrowDirection, targetBurrowDirection, Time.deltaTime * _playerStats[selectedStats].burrowTurnRate);
+        burrowDirection.y = -_playerStats[selectedStats].gravity;
         characterController.Move(burrowDirection * burrowVelocity * Time.deltaTime);
         //Debug.Log(burrowVelocity);
         if (!Input.GetButton("Jump"))
         {
             Unburrow();
         }
+
+        speedText.text = burrowVelocity.ToString();
     }
 }
